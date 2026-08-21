@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Interview Report — {{ interview.job_role }}{% endblock %}
+{% block page_title %}Interview Report{% endblock %}
+{% block content %}
+
+<div class="question-shell animate-fade-up">
+
+  <div class="surface-card p-4 p-md-5 text-center mb-4">
+    <div class="score-ring-wrap mb-3">
+      <div style="width:140px;height:140px;border-radius:50%;
+                  background: conic-gradient(var(--accent-500) {{ (interview.average_score / 10 * 100)|round(1) }}%, var(--ink-100) 0);
+                  display:flex;align-items:center;justify-content:center;">
+        <div style="width:112px;height:112px;border-radius:50%;background:var(--bg-card);
+                    display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <div class="fw-800" style="font-size:1.8rem;">{{ interview.average_score }}</div>
+          <div class="text-muted small">out of 10</div>
+        </div>
+      </div>
+    </div>
+    <h4 class="mb-1">Interview Complete!</h4>
+    <p class="text-muted mb-3">{{ interview.job_role }} · {{ interview.experience_level }} · {{ interview.created_at.strftime('%b %d, %Y') }}</p>
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+      <a href="{{ url_for('interview.download_interview_pdf', interview_id=interview.id) }}" class="btn btn-outline-brand"><i class="bi bi-file-earmark-pdf me-1"></i> Download PDF</a>
+      <a href="{{ url_for('interview.new_interview') }}" class="btn btn-brand"><i class="bi bi-arrow-repeat me-1"></i> New Interview</a>
+    </div>
+  </div>
+
+  <h5 class="mb-3">Question-by-Question Feedback</h5>
+  {% for a in answers %}
+  <div class="surface-card p-4 mb-3">
+    <div class="d-flex justify-content-between mb-2">
+      <span class="fw-semibold">Q{{ loop.index }}. {{ a.question_text }}</span>
+      <span class="badge text-bg-primary flex-shrink-0 ms-2">{{ a.score }}/10</span>
+    </div>
+    <p class="text-muted small mb-3"><strong>Your answer:</strong> {{ a.user_answer or '(No answer given)' }}</p>
+    {% if a.strengths %}<p class="mb-2"><strong class="text-success"><i class="bi bi-check-circle me-1"></i>Strengths:</strong> {{ a.strengths }}</p>{% endif %}
+    {% if a.weaknesses %}<p class="mb-2"><strong class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>Weaknesses:</strong> {{ a.weaknesses }}</p>{% endif %}
+    {% if a.improved_answer %}<p class="mb-2"><strong><i class="bi bi-stars me-1"></i>Suggested Answer:</strong> {{ a.improved_answer }}</p>{% endif %}
+    {% if a.tips %}<p class="mb-0"><strong><i class="bi bi-lightbulb me-1"></i>Tips:</strong> {{ a.tips }}</p>{% endif %}
+  </div>
+  {% endfor %}
+
+</div>
+{% endblock %}

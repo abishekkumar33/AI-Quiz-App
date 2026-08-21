@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% block title %}Performance Analysis{% endblock %}
+{% block page_title %}Performance Analysis{% endblock %}
+{% block content %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="stat-tile">
+      <div class="stat-value" style="color:var(--brand-600)">{{ stats.total_quizzes }}</div>
+      <div class="stat-label">Total Quizzes</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="stat-tile">
+      <div class="stat-value" style="color:var(--success)">{{ stats.avg_score }}%</div>
+      <div class="stat-label">Average Score</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="stat-tile">
+      <div class="stat-value" style="color:var(--accent-600)">{{ stats.highest_score }}%</div>
+      <div class="stat-label">Highest Score</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="stat-tile">
+      <div class="stat-value" style="color:var(--danger)">{{ stats.lowest_score }}%</div>
+      <div class="stat-label">Lowest Score</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="stat-tile">
+      <div class="stat-value" style="color:#ec4899">{{ stats.interview_avg }}/10</div>
+      <div class="stat-label">Interview Avg</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="stat-tile">
+      <div class="stat-value" style="color:var(--brand-500)">{{ stats.interview_count }}</div>
+      <div class="stat-label">Interviews Done</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="surface-card p-4 h-100">
+      <h6 class="mb-3">Score Trend (Recent Quizzes)</h6>
+      <canvas id="trendChart" height="240"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="surface-card p-4 h-100">
+      <h6 class="mb-3">Difficulty-wise Performance</h6>
+      <canvas id="difficultyChart" height="240"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="surface-card p-4 h-100">
+      <h6 class="mb-3">Topic-wise Performance</h6>
+      <canvas id="topicChart" height="260"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="surface-card p-4 h-100">
+      <h6 class="mb-3">Recent Activity</h6>
+      <ul class="list-unstyled mb-0">
+        {% for r, q in recent_quiz %}
+        <li class="d-flex justify-content-between py-2 border-bottom">
+          <span class="small"><i class="bi bi-patch-question-fill me-2" style="color:var(--brand-600)"></i>{{ q.topic }}</span>
+          <span class="small text-muted">{{ r.percentage }}% · {{ r.submitted_at.strftime('%b %d') }}</span>
+        </li>
+        {% endfor %}
+        {% for i in recent_interviews %}
+        <li class="d-flex justify-content-between py-2 border-bottom">
+          <span class="small"><i class="bi bi-mic-fill me-2" style="color:var(--accent-500)"></i>{{ i.job_role }}</span>
+          <span class="small text-muted">{{ i.average_score }}/10 · {{ i.created_at.strftime('%b %d') }}</span>
+        </li>
+        {% endfor %}
+        {% if not recent_quiz and not recent_interviews %}
+        <li class="text-muted small">No activity yet. Start a quiz or interview!</li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+const statsData = {{ stats|tojson }};
+const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+const gridColor = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)';
+const textColor = isDark ? '#d1d5db' : '#374151';
+Chart.defaults.color = textColor;
+Chart.defaults.font.family = 'Inter';
+
+new Chart(document.getElementById('trendChart'), {
+  type: 'line',
+  data: {
+    labels: statsData.trend.map(t => t.date),
+    datasets: [{
+      label: 'Score %',
+      data: statsData.trend.map(t => t.score),
+      borderColor: '#6366f1',
+      backgroundColor: 'rgba(99,102,241,0.15)',
+      tension: 0.35,
+      fill: true,
+      pointBackgroundColor: '#6366f1',
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { min: 0, max: 100, grid: { color: gridColor } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+new Chart(document.getElementById('difficultyChart'), {
+  type: 'doughnut',
+  data: {
+    labels: statsData.difficulty_wise.map(d => d.difficulty),
+    datasets: [{
+      data: statsData.difficulty_wise.map(d => d.average),
+      backgroundColor: ['#16a34a', '#f59e0b', '#dc2626'],
+    }]
+  },
+  options: { plugins: { legend: { position: 'bottom' } } }
+});
+
+new Chart(document.getElementById('topicChart'), {
+  type: 'bar',
+  data: {
+    labels: statsData.topic_wise.map(t => t.topic),
+    datasets: [{
+      label: 'Average Score %',
+      data: statsData.topic_wise.map(t => t.average),
+      backgroundColor: '#818cf8',
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { min: 0, max: 100, grid: { color: gridColor } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+</script>
+{% endblock %}

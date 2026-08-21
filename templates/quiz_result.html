@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Quiz Result — {{ quiz.topic }}{% endblock %}
+{% block page_title %}Quiz Result{% endblock %}
+{% block content %}
+
+<div class="question-shell animate-fade-up">
+
+  <div class="surface-card p-4 p-md-5 text-center mb-4">
+    <div class="score-ring-wrap mb-3">
+      <div style="width:140px;height:140px;border-radius:50%;
+                  background: conic-gradient(var(--brand-600) {{ result.percentage }}%, var(--ink-100) 0);
+                  display:flex;align-items:center;justify-content:center;">
+        <div style="width:112px;height:112px;border-radius:50%;background:var(--bg-card);
+                    display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <div class="fw-800" style="font-size:1.8rem;">{{ result.percentage }}%</div>
+          <div class="text-muted small">{{ result.score }}/{{ result.total_questions }}</div>
+        </div>
+      </div>
+    </div>
+    <h4 class="mb-1">
+      {% if result.percentage >= 80 %}Excellent work! 🎉
+      {% elif result.percentage >= 50 %}Good effort! 👍
+      {% else %}Keep practicing! 💪{% endif %}
+    </h4>
+    <p class="text-muted mb-3">{{ quiz.topic }} · {{ quiz.difficulty }} · {{ result.time_taken_seconds // 60 }}m {{ result.time_taken_seconds % 60 }}s</p>
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+      <a href="{{ url_for('quiz.download_quiz_pdf', result_id=result.id) }}" class="btn btn-outline-brand"><i class="bi bi-file-earmark-pdf me-1"></i> Download PDF</a>
+      <a href="{{ url_for('quiz.new_quiz') }}" class="btn btn-brand"><i class="bi bi-arrow-repeat me-1"></i> New Quiz</a>
+    </div>
+  </div>
+
+  <h5 class="mb-3">Review Answers</h5>
+  {% for q in questions %}
+  {% set ans = answers_by_qid.get(q.id, {}) %}
+  <div class="surface-card p-4 mb-3">
+    <div class="d-flex justify-content-between mb-3">
+      <span class="fw-semibold">Q{{ loop.index }}. {{ q.question_text }}</span>
+      {% if ans.get('is_correct') %}
+        <span class="badge text-bg-success flex-shrink-0 ms-2"><i class="bi bi-check-lg"></i> Correct</span>
+      {% else %}
+        <span class="badge text-bg-danger flex-shrink-0 ms-2"><i class="bi bi-x-lg"></i> Incorrect</span>
+      {% endif %}
+    </div>
+    {% set opts = q.options_dict() %}
+    {% for key, val in opts.items() %}
+      <div class="option-choice
+        {% if key == q.correct_option %}correct-answer
+        {% elif key == ans.get('selected_option') and key != q.correct_option %}wrong-answer{% endif %}">
+        <span class="option-letter">{{ key }}</span>
+        <span>{{ val }}</span>
+        {% if key == q.correct_option %}<i class="bi bi-check-circle-fill text-success ms-auto"></i>
+        {% elif key == ans.get('selected_option') %}<i class="bi bi-x-circle-fill text-danger ms-auto"></i>{% endif %}
+      </div>
+    {% endfor %}
+    {% if q.explanation %}
+    <div class="mt-2 p-3 rounded-3" style="background:var(--brand-50);">
+      <i class="bi bi-lightbulb-fill me-1" style="color:var(--accent-500);"></i>
+      <span class="small">{{ q.explanation }}</span>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+</div>
+{% endblock %}

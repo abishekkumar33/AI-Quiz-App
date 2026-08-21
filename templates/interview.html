@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% block title %}AI Mock Interview{% endblock %}
+{% block page_title %}AI Mock Interview{% endblock %}
+{% block content %}
+
+{% if mode == 'setup' %}
+<div class="question-shell animate-fade-up">
+  <div class="surface-card p-4 p-md-5">
+    <div class="icon-badge bg-interview mb-3"><i class="bi bi-mic-fill"></i></div>
+    <h4 class="mb-1">Start a mock interview</h4>
+    <p class="text-muted mb-4">Practice real interview questions and get instant AI feedback on each answer.</p>
+
+    <form id="interviewSetupForm">
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Job Role</label>
+        <input type="text" class="form-control" id="jobRole" name="job_role" placeholder="e.g. Frontend Developer, Data Analyst, Product Manager" required>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Experience Level</label>
+        <div class="btn-group w-100" role="group">
+          <input type="radio" class="btn-check" name="experience_level" id="expFresher" value="Fresher" autocomplete="off" checked>
+          <label class="btn btn-outline-brand" for="expFresher">Fresher</label>
+
+          <input type="radio" class="btn-check" name="experience_level" id="expIntermediate" value="Intermediate" autocomplete="off">
+          <label class="btn btn-outline-brand" for="expIntermediate">Intermediate</label>
+
+          <input type="radio" class="btn-check" name="experience_level" id="expExperienced" value="Experienced" autocomplete="off">
+          <label class="btn btn-outline-brand" for="expExperienced">Experienced</label>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label fw-semibold">Number of Questions</label>
+        <div class="btn-group w-100" role="group">
+          {% for n in [3, 5, 7, 10] %}
+          <input type="radio" class="btn-check" name="num_questions" id="inum{{ n }}" value="{{ n }}" autocomplete="off" {% if n == 5 %}checked{% endif %}>
+          <label class="btn btn-outline-brand" for="inum{{ n }}">{{ n }}</label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-brand w-100 py-2">
+        <i class="bi bi-magic me-1"></i> Start Interview
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="ai-loading-overlay" id="loadingOverlay">
+  <div class="ai-loading-card">
+    <div class="pulse-dots mb-3"><span></span><span></span><span></span></div>
+    <h6 class="mb-1">Preparing your interview...</h6>
+    <p class="text-muted small mb-0">Gemini AI is crafting your questions.</p>
+  </div>
+</div>
+
+<script>
+document.getElementById('interviewSetupForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const overlay = document.getElementById('loadingOverlay');
+  overlay.classList.add('show');
+
+  const formData = new FormData();
+  formData.append('job_role', document.getElementById('jobRole').value);
+  formData.append('experience_level', document.querySelector('input[name="experience_level"]:checked').value);
+  formData.append('num_questions', document.querySelector('input[name="num_questions"]:checked').value);
+
+  try {
+    const res = await fetch("{{ url_for('interview.generate') }}", { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.success) {
+      window.location.href = data.redirect;
+    } else {
+      overlay.classList.remove('show');
+      alert(data.message || 'Something went wrong. Please try again.');
+    }
+  } catch (err) {
+    overlay.classList.remove('show');
+    alert('Network error. Please try again.');
+  }
+});
+</script>
+
+{% elif mode == 'take' %}
+<div class="question-shell animate-fade-up">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="fw-semibold">{{ interview.job_role }} <span class="badge text-bg-secondary ms-1">{{ interview.experience_level }}</span></span>
+  </div>
+
+  <div class="progress-track mb-1">
+    <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+  </div>
+  <div class="text-muted small mb-4" id="progressText">Question 1 of {{ answers|length }}</div>
+
+  <div class="surface-card p-4 p-md-5" id="questionCard"></div>
+
+  <div id="feedbackCard" class="surface-card p-4 mt-3" style="display:none;"></div>
+
+  <div class="d-flex justify-content-between mt-4">
+    <button class="btn btn-outline-brand px-4" id="prevBtn"><i class="bi bi-arrow-left me-1"></i> Previous</button>
+    <button class="btn btn-brand px-4" id="actionBtn">Submit Answer <i class="bi bi-send ms-1"></i></button>
+  </div>
+</div>
+
+<div class="ai-loading-overlay" id="evalOverlay">
+  <div class="ai-loading-card">
+    <div class="pulse-dots mb-3"><span></span><span></span><span></span></div>
+    <h6 class="mb-1">Evaluating your answer...</h6>
+    <p class="text-muted small mb-0">Gemini AI is reviewing your response.</p>
+  </div>
+</div>
+
+<script>
+const answerData = [
+  {% for a in answers %}
+  { id: {{ a.id }}, question: {{ a.question_text|tojson }}, evaluated: false, userAnswer: '' }{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+const interviewId = {{ interview.id }};
+let currentIndex = 0;
+
+function renderQuestion() {
+  const item = answerData[currentIndex];
+  const card = document.getElementById('questionCard');
+  card.innerHTML = `
+    <h5 class="mb-3">Q${currentIndex + 1}. ${item.question}</h5>
+    <textarea class="form-control" id="answerInput" rows="6" placeholder="Type your answer here...">${item.userAnswer}</textarea>
+  `;
+  document.getElementById('feedbackCard').style.display = 'none';
+  document.getElementById('feedbackCard').innerHTML = '';
+
+  document.getElementById('progressText').textContent = `Question ${currentIndex + 1} of ${answerData.length}`;
+  document.getElementById('progressFill').style.width = `${((currentIndex + 1) / answerData.length) * 100}%`;
+  document.getElementById('prevBtn').disabled = currentIndex === 0;
+
+  const actionBtn = document.getElementById('actionBtn');
+  if (currentIndex === answerData.length - 1) {
+    actionBtn.innerHTML = item.evaluated ? 'Finish Interview <i class="bi bi-flag-fill ms-1"></i>' : 'Submit Answer <i class="bi bi-send ms-1"></i>';
+  } else {
+    actionBtn.innerHTML = item.evaluated ? 'Next Question <i class="bi bi-arrow-right ms-1"></i>' : 'Submit Answer <i class="bi bi-send ms-1"></i>';
+  }
+
+  if (item.evaluated) {
+    showFeedback(item.feedback);
+  }
+}
+
+function showFeedback(fb) {
+  const card = document.getElementById('feedbackCard');
+  card.style.display = 'block';
+  card.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h6 class="mb-0"><i class="bi bi-robot me-2" style="color:var(--brand-600);"></i>AI Feedback</h6>
+      <span class="badge text-bg-primary fs-6">${fb.score}/10</span>
+    </div>
+    <p class="mb-2"><strong class="text-success"><i class="bi bi-check-circle me-1"></i>Strengths:</strong> ${fb.strengths}</p>
+    <p class="mb-2"><strong class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>Weaknesses:</strong> ${fb.weaknesses}</p>
+    <p class="mb-2"><strong><i class="bi bi-stars me-1"></i>Suggested Answer:</strong> ${fb.improved_answer}</p>
+    <p class="mb-0"><strong><i class="bi bi-lightbulb me-1"></i>Tips:</strong> ${fb.tips}</p>
+  `;
+}
+
+document.getElementById('prevBtn').addEventListener('click', function () {
+  if (currentIndex > 0) { currentIndex--; renderQuestion(); }
+});
+
+document.getElementById('actionBtn').addEventListener('click', async function () {
+  const item = answerData[currentIndex];
+
+  if (!item.evaluated) {
+    const answerText = document.getElementById('answerInput').value.trim();
+    item.userAnswer = answerText;
+    document.getElementById('evalOverlay').classList.add('show');
+    try {
+      const res = await fetch(`/interview/answer/${item.id}/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answer: answerText })
+      });
+      const data = await res.json();
+      document.getElementById('evalOverlay').classList.remove('show');
+      if (data.success) {
+        item.evaluated = true;
+        item.feedback = data.evaluation;
+        renderQuestion();
+      } else {
+        alert(data.message || 'Error evaluating answer.');
+      }
+    } catch (err) {
+      document.getElementById('evalOverlay').classList.remove('show');
+      alert('Network error. Please try again.');
+    }
+  } else if (currentIndex < answerData.length - 1) {
+    currentIndex++;
+    renderQuestion();
+  } else {
+    // Finish interview
+    try {
+      const res = await fetch(`/interview/${interviewId}/complete`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = data.redirect;
+      }
+    } catch (err) {
+      alert('Network error. Please try again.');
+    }
+  }
+});
+
+renderQuestion();
+</script>
+{% endif %}
+
+{% endblock %}

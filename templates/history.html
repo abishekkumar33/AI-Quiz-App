@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}History{% endblock %}
+{% block page_title %}Previous History{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+  <ul class="nav nav-pills" id="historyTabs">
+    <li class="nav-item">
+      <a class="nav-link {% if tab == 'quizzes' %}active{% endif %}" href="{{ url_for('history.index', tab='quizzes', q=search) }}">
+        <i class="bi bi-patch-question-fill me-1"></i> Quizzes ({{ quiz_results|length }})
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if tab == 'interviews' %}active{% endif %}" href="{{ url_for('history.index', tab='interviews', q=search) }}">
+        <i class="bi bi-mic-fill me-1"></i> Interviews ({{ interviews|length }})
+      </a>
+    </li>
+  </ul>
+
+  <form class="d-flex gap-2" method="GET" action="{{ url_for('history.index') }}">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <input type="text" name="q" class="form-control" placeholder="Search by topic or role..." value="{{ search }}" style="min-width:220px;">
+    <button type="submit" class="btn btn-outline-brand"><i class="bi bi-search"></i></button>
+  </form>
+</div>
+
+{% if tab == 'quizzes' %}
+<div class="surface-card p-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="mb-0">Quiz History</h6>
+    <a href="{{ url_for('history.export_quiz_csv') }}" class="btn btn-sm btn-outline-brand"><i class="bi bi-download me-1"></i> Export CSV</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-clean mb-0">
+      <thead><tr><th>Topic</th><th>Difficulty</th><th>Score</th><th>Date</th><th></th></tr></thead>
+      <tbody>
+        {% for r, q in quiz_results %}
+        <tr>
+          <td class="fw-semibold">{{ q.topic }}</td>
+          <td><span class="badge badge-difficulty-{{ q.difficulty }}">{{ q.difficulty }}</span></td>
+          <td>
+            <span class="badge {% if r.percentage >= 70 %}text-bg-success{% elif r.percentage >= 40 %}text-bg-warning{% else %}text-bg-danger{% endif %}">
+              {{ r.score }}/{{ r.total_questions }} ({{ r.percentage }}%)
+            </span>
+          </td>
+          <td class="text-muted">{{ r.submitted_at.strftime('%b %d, %Y %H:%M') }}</td>
+          <td class="text-end"><a href="{{ url_for('quiz.quiz_result', result_id=r.id) }}" class="btn btn-sm btn-outline-brand">Review</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No quiz history found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="surface-card p-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="mb-0">Interview History</h6>
+    <a href="{{ url_for('history.export_interview_csv') }}" class="btn btn-sm btn-outline-brand"><i class="bi bi-download me-1"></i> Export CSV</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-clean mb-0">
+      <thead><tr><th>Job Role</th><th>Experience</th><th>Rating</th><th>Date</th><th></th></tr></thead>
+      <tbody>
+        {% for i in interviews %}
+        <tr>
+          <td class="fw-semibold">{{ i.job_role }}</td>
+          <td><span class="badge text-bg-secondary">{{ i.experience_level }}</span></td>
+          <td><span class="badge text-bg-primary">{{ i.average_score }}/10</span></td>
+          <td class="text-muted">{{ i.created_at.strftime('%b %d, %Y %H:%M') }}</td>
+          <td class="text-end"><a href="{{ url_for('interview.interview_result', interview_id=i.id) }}" class="btn btn-sm btn-outline-brand">Review</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No interview history found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

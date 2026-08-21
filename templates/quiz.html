@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% block title %}AI Quiz Generator{% endblock %}
+{% block page_title %}AI Quiz Generator{% endblock %}
+{% block content %}
+
+{% if mode == 'setup' %}
+<div class="question-shell animate-fade-up">
+  <div class="surface-card p-4 p-md-5">
+    <div class="icon-badge bg-quiz mb-3"><i class="bi bi-patch-question-fill"></i></div>
+    <h4 class="mb-1">Generate a new quiz</h4>
+    <p class="text-muted mb-4">Tell us the topic and we'll build a custom quiz using Gemini AI.</p>
+
+    <form id="quizSetupForm">
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Topic</label>
+        <input type="text" class="form-control" id="topic" name="topic" placeholder="e.g. Python Programming, World History, Photosynthesis" required>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Difficulty</label>
+        <div class="btn-group w-100" role="group">
+          <input type="radio" class="btn-check" name="difficulty" id="diffEasy" value="Easy" autocomplete="off">
+          <label class="btn btn-outline-brand" for="diffEasy">Easy</label>
+
+          <input type="radio" class="btn-check" name="difficulty" id="diffMedium" value="Medium" autocomplete="off" checked>
+          <label class="btn btn-outline-brand" for="diffMedium">Medium</label>
+
+          <input type="radio" class="btn-check" name="difficulty" id="diffHard" value="Hard" autocomplete="off">
+          <label class="btn btn-outline-brand" for="diffHard">Hard</label>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label fw-semibold">Number of Questions</label>
+        <div class="btn-group w-100" role="group">
+          {% for n in [5, 10, 15, 20] %}
+          <input type="radio" class="btn-check" name="num_questions" id="num{{ n }}" value="{{ n }}" autocomplete="off" {% if n == 5 %}checked{% endif %}>
+          <label class="btn btn-outline-brand" for="num{{ n }}">{{ n }}</label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-brand w-100 py-2">
+        <i class="bi bi-magic me-1"></i> Generate Quiz
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="ai-loading-overlay" id="loadingOverlay">
+  <div class="ai-loading-card">
+    <div class="pulse-dots mb-3"><span></span><span></span><span></span></div>
+    <h6 class="mb-1">Generating your quiz...</h6>
+    <p class="text-muted small mb-0">Gemini AI is crafting your questions. This may take a few seconds.</p>
+  </div>
+</div>
+
+<script>
+document.getElementById('quizSetupForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const overlay = document.getElementById('loadingOverlay');
+  overlay.classList.add('show');
+
+  const formData = new FormData();
+  formData.append('topic', document.getElementById('topic').value);
+  formData.append('difficulty', document.querySelector('input[name="difficulty"]:checked').value);
+  formData.append('num_questions', document.querySelector('input[name="num_questions"]:checked').value);
+
+  try {
+    const res = await fetch("{{ url_for('quiz.generate') }}", { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.success) {
+      window.location.href = data.redirect;
+    } else {
+      overlay.classList.remove('show');
+      alert(data.message || 'Something went wrong. Please try again.');
+    }
+  } catch (err) {
+    overlay.classList.remove('show');
+    alert('Network error. Please try again.');
+  }
+});
+</script>
+
+{% elif mode == 'take' %}
+<div class="question-shell animate-fade-up">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="fw-semibold">{{ quiz.topic }} <span class="badge badge-difficulty-{{ quiz.difficulty }} ms-1">{{ quiz.difficulty }}</span></span>
+    <span class="timer-badge" id="timerBadge"><i class="bi bi-stopwatch me-1"></i><span id="timerText">00:00</span></span>
+  </div>
+
+  <div class="progress-track mb-1">
+    <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+  </div>
+  <div class="text-muted small mb-4" id="progressText">Question 1 of {{ questions|length }}</div>
+
+  <div class="surface-card p-4 p-md-5" id="questionCard">
+    <!-- Rendered by JS -->
+  </div>
+
+  <div class="d-flex justify-content-between mt-4">
+    <button class="btn btn-outline-brand px-4" id="prevBtn"><i class="bi bi-arrow-left me-1"></i> Previous</button>
+    <button class="btn btn-brand px-4" id="nextBtn">Next <i class="bi bi-arrow-right ms-1"></i></button>
+  </div>
+</div>
+
+<div class="ai-loading-overlay" id="submitOverlay">
+  <div class="ai-loading-card">
+    <div class="pulse-dots mb-3"><span></span><span></span><span></span></div>
+    <h6 class="mb-1">Scoring your quiz...</h6>
+    <p class="text-muted small mb-0">Please wait a moment.</p>
+  </div>
+</div>
+
+<script>
+const questions = [
+  {% for q in questions %}
+  {
+    id: {{ q.id }},
+    text: {{ q.question_text|tojson }},
+    options: { A: {{ q.option_a|tojson }}, B: {{ q.option_b|tojson }}, C: {{ q.option_c|tojson }}, D: {{ q.option_d|tojson }} }
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+const quizId = {{ quiz.id }};
+let currentIndex = 0;
+const selectedAnswers = {};
+let startTime = Date.now();
+
+function renderQuestion() {
+  const q = questions[currentIndex];
+  const card = document.getElementById('questionCard');
+  let optionsHtml = '';
+  ['A', 'B', 'C', 'D'].forEach(function (key) {
+    const isSelected = selectedAnswers[q.id] === key;
+    optionsHtml += `
+      <div class="option-choice ${isSelected ? 'selected' : ''}" data-option="${key}" onclick="selectOption('${key}')">
+        <span class="option-letter">${key}</span>
+        <span>${q.options[key]}</span>
+      </div>`;
+  });
+  card.innerHTML = `<h5 class="mb-4">${q.text}</h5>${optionsHtml}`;
+
+  document.getElementById('progressText').textContent = `Question ${currentIndex + 1} of ${questions.length}`;
+  document.getElementById('progressFill').style.width = `${((currentIndex + 1) / questions.length) * 100}%`;
+  document.getElementById('prevBtn').disabled = currentIndex === 0;
+  document.getElementById('nextBtn').innerHTML = currentIndex === questions.length - 1
+    ? 'Submit Quiz <i class="bi bi-check-circle ms-1"></i>' : 'Next <i class="bi bi-arrow-right ms-1"></i>';
+}
+
+function selectOption(key) {
+  selectedAnswers[questions[currentIndex].id] = key;
+  renderQuestion();
+}
+
+document.getElementById('prevBtn').addEventListener('click', function () {
+  if (currentIndex > 0) { currentIndex--; renderQuestion(); }
+});
+
+document.getElementById('nextBtn').addEventListener('click', async function () {
+  if (currentIndex < questions.length - 1) {
+    currentIndex++;
+    renderQuestion();
+  } else {
+    // Submit
+    const unanswered = questions.filter(function (q) { return !selectedAnswers[q.id]; }).length;
+    if (unanswered > 0 && !confirm(`You have ${unanswered} unanswered question(s). Submit anyway?`)) {
+      return;
+    }
+    document.getElementById('submitOverlay').classList.add('show');
+    const timeTaken = Math.round((Date.now() - startTime) / 1000);
+    try {
+      const res = await fetch(`/quiz/${quizId}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: selectedAnswers, time_taken_seconds: timeTaken })
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = data.redirect;
+      } else {
+        document.getElementById('submitOverlay').classList.remove('show');
+        alert('Error submitting quiz. Please try again.');
+      }
+    } catch (err) {
+      document.getElementById('submitOverlay').classList.remove('show');
+      alert('Network error. Please try again.');
+    }
+  }
+});
+
+// Timer
+function updateTimer() {
+  const elapsed = Math.round((Date.now() - startTime) / 1000);
+  const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const secs = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('timerText').textContent = `${mins}:${secs}`;
+}
+setInterval(updateTimer, 1000);
+
+renderQuestion();
+</script>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}AI Quiz & Mock Interview — Practice Smarter{% endblock %}
+{% block guest_content %}
+<div class="guest-wrap">
+  <nav class="guest-nav">
+    <div class="brand-mark"><i class="bi bi-mortarboard-fill"></i> AI Quiz &amp; Interview</div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('auth.login') }}" class="btn btn-outline-brand px-3">Log In</a>
+      <a href="{{ url_for('auth.register') }}" class="btn btn-brand px-3">Get Started</a>
+    </div>
+  </nav>
+
+  <section class="hero-section">
+    <div class="container">
+      <div class="row align-items-center g-5">
+        <div class="col-lg-6">
+          <span class="hero-eyebrow"><i class="bi bi-stars"></i> Powered by Google Gemini</span>
+          <h1 class="hero-title">Practice quizzes and interviews with an <span class="accent-word">AI that adapts</span> to you.</h1>
+          <p class="hero-sub">Generate topic-specific quizzes in seconds, rehearse real interview questions for any
+            role, and get instant, detailed feedback — all in one clean dashboard.</p>
+          <div class="d-flex gap-3 flex-wrap">
+            <a href="{{ url_for('auth.register') }}" class="btn btn-brand btn-lg px-4">Start Practicing Free</a>
+            <a href="{{ url_for('auth.login') }}" class="btn btn-outline-brand btn-lg px-4">I have an account</a>
+          </div>
+
+          <div class="row g-3 mt-4">
+            <div class="col-4">
+              <div class="feature-pill text-center">
+                <i class="bi bi-patch-question-fill"></i>
+                <div class="fw-semibold mt-2 small">Smart Quizzes</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="feature-pill text-center">
+                <i class="bi bi-mic-fill"></i>
+                <div class="fw-semibold mt-2 small">Mock Interviews</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="feature-pill text-center">
+                <i class="bi bi-bar-chart-line-fill"></i>
+                <div class="fw-semibold mt-2 small">Performance Insight</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-6 d-none d-lg-block">
+          <div class="exam-card-stack">
+            <div class="float-card card-1">
+              <div class="d-flex justify-content-between mb-2">
+                <span class="badge badge-difficulty-Medium px-2 py-1">Medium</span>
+                <span class="text-muted small">Question 3/10</span>
+              </div>
+              <div class="fw-semibold mb-3">What is the time complexity of binary search?</div>
+              <div class="option-choice selected py-2 px-3 mb-2"><span class="option-letter">A</span> O(log n)</div>
+              <div class="option-choice py-2 px-3"><span class="option-letter">B</span> O(n)</div>
+            </div>
+            <div class="float-card card-2">
+              <div class="fw-semibold mb-2"><i class="bi bi-graph-up-arrow text-success"></i> Average Score</div>
+              <div class="display-font fw-800" style="font-size:2rem;">84%</div>
+              <div class="text-muted small">Last 10 quizzes</div>
+            </div>
+            <div class="float-card card-3">
+              <div class="fw-semibold mb-2"><i class="bi bi-mic-fill text-warning"></i> Interview Feedback</div>
+              <div class="text-muted small">"Strong structure, add a measurable result to your example."</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — AI Quiz & Mock Interview{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+
+<div class="welcome-banner mb-4 animate-fade-up">
+  <h2 class="text-white mb-1">Welcome back, {{ current_user.full_name.split(' ')[0] }}! 👋</h2>
+  <p class="text-white-50 mb-0">Ready to sharpen your skills today? Pick a quiz topic or practice an interview.</p>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-tile">
+      <div class="stat-value" style="color:var(--brand-600)">{{ quiz_count }}</div>
+      <div class="stat-label">Quizzes Taken</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-tile">
+      <div class="stat-value" style="color:var(--accent-600)">{{ interview_count }}</div>
+      <div class="stat-label">Interviews Done</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-tile">
+      <div class="stat-value" style="color:var(--success)">
+        {% if recent_results %}{{ recent_results[0].percentage }}%{% else %}—{% endif %}
+      </div>
+      <div class="stat-label">Latest Quiz Score</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-tile">
+      <div class="stat-value" style="color:#ec4899">
+        {% if recent_interviews %}{{ recent_interviews[0].average_score }}/10{% else %}—{% endif %}
+      </div>
+      <div class="stat-label">Latest Interview Rating</div>
+    </div>
+  </div>
+</div>
+
+<h5 class="mb-3">What would you like to do?</h5>
+<div class="row g-4 mb-4">
+  <div class="col-md-6 col-lg-3">
+    <a href="{{ url_for('quiz.new_quiz') }}" class="feature-card d-block text-decoration-none">
+      <div class="icon-badge bg-quiz"><i class="bi bi-patch-question-fill"></i></div>
+      <h6 class="mb-2">AI Quiz Generator</h6>
+      <p class="text-muted small mb-0">Generate custom quizzes on any topic, at your chosen difficulty.</p>
+    </a>
+  </div>
+  <div class="col-md-6 col-lg-3">
+    <a href="{{ url_for('interview.new_interview') }}" class="feature-card d-block text-decoration-none">
+      <div class="icon-badge bg-interview"><i class="bi bi-mic-fill"></i></div>
+      <h6 class="mb-2">AI Mock Interview</h6>
+      <p class="text-muted small mb-0">Practice real interview questions and get instant AI feedback.</p>
+    </a>
+  </div>
+  <div class="col-md-6 col-lg-3">
+    <a href="{{ url_for('performance.index') }}" class="feature-card d-block text-decoration-none">
+      <div class="icon-badge bg-perf"><i class="bi bi-bar-chart-line-fill"></i></div>
+      <h6 class="mb-2">Performance Analysis</h6>
+      <p class="text-muted small mb-0">See your trends, strengths, and areas that need work.</p>
+    </a>
+  </div>
+  <div class="col-md-6 col-lg-3">
+    <a href="{{ url_for('history.index') }}" class="feature-card d-block text-decoration-none">
+      <div class="icon-badge bg-history"><i class="bi bi-clock-history"></i></div>
+      <h6 class="mb-2">Previous History</h6>
+      <p class="text-muted small mb-0">Review past quizzes and interviews in detail.</p>
+    </a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="surface-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="mb-0"><i class="bi bi-patch-question-fill me-2" style="color:var(--brand-600)"></i>Recent Quizzes</h6>
+        <a href="{{ url_for('history.index') }}?tab=quizzes" class="small text-decoration-none">View all</a>
+      </div>
+      {% if recent_results %}
+        {% for r in recent_results %}
+        <a href="{{ url_for('quiz.quiz_result', result_id=r.id) }}" class="d-flex justify-content-between align-items-center py-2 text-decoration-none text-body {% if not loop.last %}border-bottom{% endif %}">
+          <div>
+            <div class="fw-semibold">{{ r.quiz.topic }}</div>
+            <div class="text-muted small">{{ r.submitted_at.strftime('%b %d, %Y') }} · {{ r.quiz.difficulty }}</div>
+          </div>
+          <span class="badge {% if r.percentage >= 70 %}text-bg-success{% elif r.percentage >= 40 %}text-bg-warning{% else %}text-bg-danger{% endif %}">{{ r.percentage }}%</span>
+        </a>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted small mb-0">No quizzes yet. <a href="{{ url_for('quiz.new_quiz') }}">Generate your first one!</a></p>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="surface-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="mb-0"><i class="bi bi-mic-fill me-2" style="color:var(--accent-500)"></i>Recent Interviews</h6>
+        <a href="{{ url_for('history.index') }}?tab=interviews" class="small text-decoration-none">View all</a>
+      </div>
+      {% if recent_interviews %}
+        {% for i in recent_interviews %}
+        <a href="{{ url_for('interview.interview_result', interview_id=i.id) }}" class="d-flex justify-content-between align-items-center py-2 text-decoration-none text-body {% if not loop.last %}border-bottom{% endif %}">
+          <div>
+            <div class="fw-semibold">{{ i.job_role }}</div>
+            <div class="text-muted small">{{ i.created_at.strftime('%b %d, %Y') }} · {{ i.experience_level }}</div>
+          </div>
+          <span class="badge text-bg-primary">{{ i.average_score }}/10</span>
+        </a>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted small mb-0">No interviews yet. <a href="{{ url_for('interview.new_interview') }}">Try your first mock interview!</a></p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
