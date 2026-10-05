@@ -53,10 +53,10 @@
       </div>
     {% endfor %}
     {% if q.explanation %}
-    <div class="mt-2 p-3 rounded-3" style="background:var(--brand-50);">
-      <i class="bi bi-lightbulb-fill me-1" style="color:var(--accent-500);"></i>
-      <span class="small">{{ q.explanation }}</span>
-    </div>
+    <div class="explanation-box mt-2 p-3 rounded-3">
+  <i class="bi bi-lightbulb-fill me-1" style="color:var(--accent-500);"></i>
+  <span class="small">{{ q.explanation }}</span>
+</div>
     {% endif %}
   </div>
   {% endfor %}

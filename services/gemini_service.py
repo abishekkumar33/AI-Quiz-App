@@ -11,8 +11,10 @@ generated mock response so the app remains usable as a demo. When a key is
 configured, Gemini errors are reported instead of being hidden by demo data.
 """
 import json
+import os
 import re
 import random
+import time
 from flask import current_app
 
 _client = None
@@ -35,7 +37,7 @@ def _get_client():
         if _client is None or _client_key != api_key:
             _client = genai.Client(api_key=api_key)
             _client_key = api_key
-        model_name = (current_app.config.get('GEMINI_MODEL') or 'gemini-3.6-flash').strip()
+        model_name = (current_app.config.get('GEMINI_MODEL') or 'gemini-3.8-live').strip()
         return _client, model_name
     except Exception as exc:
         current_app.logger.exception("Failed to initialize google-genai client.")
@@ -62,39 +64,73 @@ def _extract_json(text):
     return json.loads(text[start:end + 1])
 
 
+def _candidate_models(primary):
+    """Primary model first, then any models listed in GEMINI_FALLBACK_MODELS (comma separated)."""
+    fallbacks = os.environ.get(
+        'GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash,gemini-3.5-flash-lite,gemini-flash-latest'
+    )
+    models = [primary] + [m.strip() for m in fallbacks.split(',') if m.strip()]
+    seen, unique = set(), []
+    for m in models:
+        if m not in seen:
+            seen.add(m)
+            unique.append(m)
+    return unique
+
+
 def _call_gemini(prompt):
     client, model_name = _get_client()
     if client is None:
         return None
-    try:
-        from google.genai import types
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.7,
-                max_output_tokens=8192,
-                response_mime_type='application/json',
-            ),
-        )
-        text = response.text
-        if not text:
-            current_app.logger.warning(
-                f"Gemini returned no text (possible safety block or truncation). "
-                f"finish_reason(s): {[c.finish_reason for c in (response.candidates or [])]}"
+    from google.genai import types
+
+    last_exc = None
+    for model in _candidate_models(model_name):
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.7,
+                    max_output_tokens=8192,
+                    response_mime_type='application/json',
+                ),
             )
-            raise GeminiServiceError(
-                "Gemini returned an empty response. Check the server log for the finish reason."
-            )
-        return text
-    except GeminiServiceError:
-        raise
-    except Exception as exc:
-        current_app.logger.exception("Gemini API call failed.")
-        raise GeminiServiceError(
-            f"Gemini could not generate content using model '{model_name}'. "
-            "Check GEMINI_API_KEY, GEMINI_MODEL, quota, and the server log."
-        ) from exc
+            text = response.text
+            if not text:
+                current_app.logger.warning(
+                    f"Gemini ({model}) returned no text. finish_reason(s): "
+                    f"{[c.finish_reason for c in (response.candidates or [])]}"
+                )
+                last_exc = GeminiServiceError("Gemini returned an empty response.")
+                continue
+            if model != model_name:
+                current_app.logger.warning("Primary model '%s' failed; used fallback '%s'.", model_name, model)
+            return text
+        except Exception as exc:
+            last_exc = exc
+            err = str(exc)
+            # Bad key: no point trying other models.
+            if "API key" in err or "401" in err or "403" in err or "PERMISSION_DENIED" in err:
+                current_app.logger.error("Gemini rejected the API key: %s", err)
+                raise GeminiServiceError(
+                    "Gemini rejected the API key. Check GEMINI_API_KEY in your .env file."
+                ) from exc
+            current_app.logger.warning("Model '%s' failed (%s). Trying next model...", model, err[:150])
+            time.sleep(1)
+
+    current_app.logger.error("All Gemini models failed. Last error: %s", last_exc)
+    err = str(last_exc)
+    if "429" in err or "RESOURCE_EXHAUSTED" in err:
+        msg = ("Gemini quota/rate limit reached. Wait a minute or check "
+               "https://aistudio.google.com/rate-limit")
+    elif "503" in err or "UNAVAILABLE" in err:
+        msg = "Gemini is busy right now (high demand). Please try again in a minute."
+    elif "404" in err or "NOT_FOUND" in err:
+        msg = "None of the configured models were found. Run list_models.py and update GEMINI_MODEL."
+    else:
+        msg = "Gemini could not generate content. Check the server log."
+    raise GeminiServiceError(msg) from last_exc
 
 
 # ---------------------------------------------------------------------------
