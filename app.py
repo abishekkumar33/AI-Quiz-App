@@ -79,6 +79,12 @@ def create_app(config_class=Config):
     with app.app_context():
         db.create_all()
 
+    if app.config.get('DB_IS_EPHEMERAL'):
+        app.logger.error(
+            "[DB] SQLite inside the app folder on Render is wiped on every "
+            "deploy/restart. Set DATABASE_URL or SQLITE_PATH on a Persistent Disk."
+        )
+
     # Loud, unmissable startup log so it's obvious which mode Gemini is in.
     # This is the #1 cause of "it still shows demo questions after I added a
     # key": the key never actually reached app.config (wrong .env path,
